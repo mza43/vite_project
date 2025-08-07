@@ -5,6 +5,7 @@ import ListItem from "@mui/material/ListItem";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
+import { Link } from "react-router-dom";
 
 // Material UI Icons
 import HomeIcon from "@mui/icons-material/Home";
@@ -15,14 +16,12 @@ import InfoIcon from "@mui/icons-material/Info";
 
 const drawerWidth = 240;
 
-// Menu Items (centralized for easy editing)
+// Menu items with paths
 const menuItems = [
-  
-  { text: "Home", icon: <HomeIcon /> },
-  { text: "Users", icon: <PeopleIcon /> },
-  { text: "Categories", icon: <CategoryIcon /> },
-  { text: "Posts", icon: <PostAddIcon /> },
-  { text: "About", icon: <InfoIcon /> },
+  { text: "Home", icon: <HomeIcon />, path: "/" },
+  { text: "Users", icon: <PeopleIcon />, path: "/users" },
+  { text: "Categories", icon: <CategoryIcon />, path: "/categories" },
+  { text: "Posts", icon: <PostAddIcon />, path: "/posts" },
 ];
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -41,7 +40,14 @@ const Sidebar = ({ isOpen, onClose }) => {
       <List>
         {menuItems.map((item, index) => (
           <ListItem key={index} disablePadding>
-            <ListItemButton>
+            <ListItemButton
+              component={Link}
+              to={item.path}
+              onClick={() => {
+                console.log("Sidebar clicked → Navigating to:", item.path);
+                if (onClose) onClose(); // close drawer on mobile after click
+              }}
+            >
               <ListItemIcon>{item.icon}</ListItemIcon>
               <ListItemText primary={item.text} />
             </ListItemButton>

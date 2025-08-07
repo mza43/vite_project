@@ -14,8 +14,16 @@
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.2.0",
     "@mui/material": "^7.2.0",
+    "@reduxjs/toolkit": "^2.8.2",
+    "ag-grid-community": "^34.1.0",
+    "ag-grid-react": "^34.1.0",
+    "axios": "^1.11.0",
+    "formik": "^2.4.6",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^7.7.1",
+    "yup": "^1.6.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
