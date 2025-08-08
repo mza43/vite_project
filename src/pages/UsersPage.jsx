@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   fetchUsers,
@@ -17,38 +17,36 @@ import {
   Typography,
   CircularProgress,
   Box,
+  InputAdornment,
 } from "@mui/material";
+import { Search } from "@mui/icons-material";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import ConfirmDialog from "../components/common/ConfirmDialog";
 import NotificationDialog from "../components/common/NotificationDialog";
-
-// AG Grid module register
-import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
-ModuleRegistry.registerModules([AllCommunityModule]);
+import "ag-grid-community/styles/ag-grid.css";
+import "ag-grid-community/styles/ag-theme-alpine.css";
 
 const UsersPage = () => {
   const dispatch = useDispatch();
-  const { list: users, loading } = useSelector((state) => state.users);
+  const { list: users, loading, meta } = useSelector((state) => state.users);
 
-  // Dialog states
   const [openDialog, setOpenDialog] = useState(false);
   const [openView, setOpenView] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [editId, setEditId] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
-
-  // Notification state
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [sortModel, setSortModel] = useState([]);
 
-  // Initial data load
   useEffect(() => {
-    dispatch(fetchUsers());
-  }, [dispatch]);
+    dispatch(fetchUsers({ page, search: searchTerm }));
+  }, [dispatch, page, searchTerm]);
 
-  // Formik setup
   const formik = useFormik({
     initialValues: {
       name: "",
@@ -64,7 +62,6 @@ const UsersPage = () => {
     }),
     onSubmit: async (values) => {
       try {
-        // payload must have settings object
         const payload = {
           name: values.name,
           email: values.email,
@@ -82,23 +79,19 @@ const UsersPage = () => {
           setNotificationMessage("User created successfully!");
         }
 
-        // refresh list & close dialog
-        await dispatch(fetchUsers());
+        await dispatch(fetchUsers({ page }));
         setNotificationOpen(true);
         formik.resetForm();
         handleCloseDialog();
       } catch (err) {
-        // handle error message
         setNotificationMessage(err?.message || "Something went wrong!");
         setNotificationOpen(true);
       }
     },
   });
 
-  // Open dialog for create/edit
   const handleOpenDialog = (user = null) => {
     if (user) {
-      // prefill values for edit
       formik.setValues({
         name: user.name,
         email: user.email,
@@ -115,7 +108,6 @@ const UsersPage = () => {
 
   const handleCloseDialog = () => setOpenDialog(false);
 
-  // Delete handlers
   const handleDeleteClick = (id) => {
     setDeleteId(id);
     setConfirmOpen(true);
@@ -124,7 +116,7 @@ const UsersPage = () => {
   const handleConfirmDelete = async () => {
     try {
       await dispatch(deleteUser(deleteId)).unwrap();
-      await dispatch(fetchUsers());
+      await dispatch(fetchUsers({ page }));
       setNotificationMessage("User deleted successfully!");
       setNotificationOpen(true);
     } catch (err) {
@@ -134,17 +126,20 @@ const UsersPage = () => {
     setConfirmOpen(false);
   };
 
-  // View dialog
   const handleViewClick = (user) => {
     setSelectedUser(user);
     setOpenView(true);
   };
 
-  // AG Grid columns
+  const handleSortChanged = useCallback((params) => {
+    const sort = params.api.getSortModel();
+    setSortModel(sort);
+  }, []);
+
   const columns = [
-    { headerName: "ID", field: "id", width: 70 },
-    { headerName: "Name", field: "name", flex: 1 },
-    { headerName: "Email", field: "email", flex: 1 },
+    { headerName: "ID", field: "id", width: 70, sortable: true },
+    { headerName: "Name", field: "name", flex: 1, sortable: true },
+    { headerName: "Email", field: "email", flex: 1, sortable: true },
     {
       headerName: "Phone",
       field: "setting.phone",
@@ -191,46 +186,83 @@ const UsersPage = () => {
     },
   ];
 
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setPage(1); // reset to page 1 on new search
+  };
+
   return (
     <div>
       <Typography variant="h4" gutterBottom>
         Users
       </Typography>
 
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={() => handleOpenDialog()}
-        sx={{ mb: 2 }}
-      >
-        Add User
-      </Button>
+      <Box display="flex" justifyContent="space-between" mb={2}>
+        <TextField
+          placeholder="Search users..."
+          value={searchTerm}
+          onChange={handleSearchChange}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search />
+              </InputAdornment>
+            ),
+          }}
+        />
+        <Button variant="contained" onClick={() => handleOpenDialog()}>
+          Add User
+        </Button>
+      </Box>
 
-      {/* Loader */}
       {loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
+        <Box display="flex" justifyContent="center" mt={4}>
           <CircularProgress />
         </Box>
       ) : (
-        <div className="ag-theme-alpine" style={{ width: "100%", borderRadius: "8px" }}>
-          <AgGridReact
-            rowData={users}
-            columnDefs={columns}
-            pagination={true}
-            paginationPageSize={10}
-            rowHeight={50}
-            headerHeight={45}
-            domLayout="autoHeight"
-            defaultColDef={{
-              sortable: true,
-              filter: true,
-              floatingFilter: true,
-            }}
-          />
-        </div>
+        <>
+          <div className="ag-theme-alpine" style={{ width: "100%" }}>
+            <AgGridReact
+              rowData={users}
+              columnDefs={columns}
+              pagination={false}
+              onSortChanged={handleSortChanged}
+              domLayout="autoHeight"
+              defaultColDef={{
+                sortable: true,
+                filter: true,
+                floatingFilter: true,
+              }}
+            />
+          </div>
+
+          {/* Pagination Controls */}
+          <Box display="flex" justifyContent="space-between" mt={2}>
+            <Typography>
+              Page {meta?.currentPage} of {meta?.lastPage} | Total:{" "}
+              {meta?.total}
+            </Typography>
+            <Box display="flex" gap={1}>
+              <Button
+                variant="outlined"
+                disabled={meta?.currentPage === 1}
+                onClick={() => setPage((prev) => prev - 1)}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outlined"
+                disabled={meta?.currentPage === meta?.lastPage}
+                onClick={() => setPage((prev) => prev + 1)}
+              >
+                Next
+              </Button>
+            </Box>
+          </Box>
+        </>
       )}
 
-      {/* Dialog for Add/Edit */}
+      {/* Dialogs */}
       <Dialog open={openDialog} onClose={handleCloseDialog} fullWidth>
         <DialogTitle>{editId ? "Edit User" : "Add User"}</DialogTitle>
         <form onSubmit={formik.handleSubmit}>
@@ -278,14 +310,13 @@ const UsersPage = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={handleCloseDialog}>Cancel</Button>
-            <Button variant="contained" color="primary" type="submit">
+            <Button variant="contained" type="submit">
               {editId ? "Update" : "Create"}
             </Button>
           </DialogActions>
         </form>
       </Dialog>
 
-      {/* View Dialog */}
       <Dialog open={openView} onClose={() => setOpenView(false)} fullWidth>
         <DialogTitle>User Details</DialogTitle>
         <DialogContent>
@@ -307,7 +338,6 @@ const UsersPage = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Confirm Delete */}
       <ConfirmDialog
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
@@ -316,7 +346,6 @@ const UsersPage = () => {
         message="Are you sure you want to delete this user?"
       />
 
-      {/* Notification Dialog */}
       <NotificationDialog
         open={notificationOpen}
         onClose={() => setNotificationOpen(false)}

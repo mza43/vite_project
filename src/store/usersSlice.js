@@ -3,15 +3,28 @@ import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-// Fetch Users
-export const fetchUsers = createAsyncThunk("users/fetchUsers", async () => {
-  const res = await axios.get(`${API_URL}/users`);
-  return res.data.data; // API returns {status,message,data}
-});
+// Fetch Users 
+export const fetchUsers = createAsyncThunk(
+  "users/fetchUsers",
+  async ({ page = 1, limit = 20, search = "", sortField = "id", sortOrder = "asc" } = {}) => {
+    const res = await axios.post(`${API_URL}/users`, {
+      page,
+      limit,
+      search,
+      sortField,
+      sortOrder,
+    });
+    return {
+      list: res.data.data,
+      meta: res.data.meta,
+    };
+  }
+);
+
 
 // Create User
 export const createUser = createAsyncThunk("users/createUser", async (user) => {
-  const res = await axios.post(`${API_URL}/users`, user);
+  const res = await axios.post(`${API_URL}/users/create`, user); // renamed to /create to avoid conflict
   return res.data.data;
 });
 
@@ -32,7 +45,12 @@ export const deleteUser = createAsyncThunk("users/deleteUser", async (id) => {
 
 const usersSlice = createSlice({
   name: "users",
-  initialState: { list: [], loading: false, error: null },
+  initialState: {
+    list: [],
+    meta: null,
+    loading: false,
+    error: null,
+  },
   reducers: {},
   extraReducers: (builder) => {
     builder
@@ -41,14 +59,15 @@ const usersSlice = createSlice({
       })
       .addCase(fetchUsers.fulfilled, (state, action) => {
         state.loading = false;
-        state.list = action.payload;
+        state.list = action.payload.list;
+        state.meta = action.payload.meta;
       })
       .addCase(fetchUsers.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;
       })
       .addCase(createUser.fulfilled, (state, action) => {
-        state.list.push(action.payload);
+        state.list.unshift(action.payload); // insert at beginning
       })
       .addCase(updateUser.fulfilled, (state, action) => {
         const index = state.list.findIndex((u) => u.id === action.payload.id);

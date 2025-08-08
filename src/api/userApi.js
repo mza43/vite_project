@@ -1,11 +1,13 @@
+// src/api/users.js
+
 import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333/api";
 
-// Get all users
-export const fetchUsers = async () => {
-  const response = await axios.get(`${API_URL}/users`);
-  return response.data.data;
+// POST with pagination
+export const fetchUsers = async ({ page = 1, limit = 20, search = "" }) => {
+  const response = await axios.post(`${API_URL}/users`, { page, limit, search });
+  return response.data;
 };
 
 export const fetchUser = async (id) => {
@@ -14,7 +16,7 @@ export const fetchUser = async (id) => {
 };
 
 export const createUser = async (data) => {
-  const response = await axios.post(`${API_URL}/users`, data);
+  const response = await axios.post(`${API_URL}/users/create`, data);
   return response.data.data;
 };
 
