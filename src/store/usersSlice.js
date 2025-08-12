@@ -1,19 +1,33 @@
+
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-// Fetch Users 
+
 export const fetchUsers = createAsyncThunk(
   "users/fetchUsers",
-  async ({ page = 1, limit = 20, search = "", sortField = "id", sortOrder = "asc" } = {}) => {
-    const res = await axios.post(`${API_URL}/users`, {
+  async (
+    {
+      page = 1,
+      limit = 20,
+      filters = {}, 
+      q = "",
+      sortField = "id",
+      sortOrder = "asc",
+    } = {}
+  ) => {
+    const payload = {
       page,
       limit,
-      search,
+      filters,
+      q,
       sortField,
       sortOrder,
-    });
+    };
+
+    const res = await axios.post(`${API_URL}/users`, payload);
+    // backend returns { data: [...], meta: {...} }
     return {
       list: res.data.data,
       meta: res.data.meta,
@@ -21,10 +35,9 @@ export const fetchUsers = createAsyncThunk(
   }
 );
 
-
 // Create User
 export const createUser = createAsyncThunk("users/createUser", async (user) => {
-  const res = await axios.post(`${API_URL}/users/create`, user); // renamed to /create to avoid conflict
+  const res = await axios.post(`${API_URL}/users/create`, user);
   return res.data.data;
 });
 
@@ -56,6 +69,7 @@ const usersSlice = createSlice({
     builder
       .addCase(fetchUsers.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
       .addCase(fetchUsers.fulfilled, (state, action) => {
         state.loading = false;
@@ -67,7 +81,8 @@ const usersSlice = createSlice({
         state.error = action.error.message;
       })
       .addCase(createUser.fulfilled, (state, action) => {
-        state.list.unshift(action.payload); // insert at beginning
+      
+        state.list.unshift(action.payload);
       })
       .addCase(updateUser.fulfilled, (state, action) => {
         const index = state.list.findIndex((u) => u.id === action.payload.id);

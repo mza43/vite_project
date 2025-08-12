@@ -1,3 +1,4 @@
+// src/pages/UsersPage.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -39,13 +40,26 @@ const UsersPage = () => {
   const [deleteId, setDeleteId] = useState(null);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
+
+  // Paging / sorting / searching states
+  const [searchTerm, setSearchTerm] = useState(""); // global search (q)
+  const [filters, setFilters] = useState({}); // column-specific filters: { name, email, phone, city, id }
   const [page, setPage] = useState(1);
   const [sortModel, setSortModel] = useState([]);
 
+  // Load users whenever page / filters / searchTerm / sortModel changes
   useEffect(() => {
-    dispatch(fetchUsers({ page, search: searchTerm }));
-  }, [dispatch, page, searchTerm]);
+    dispatch(
+      fetchUsers({
+        page,
+        limit: 20,
+        filters: filters,
+        q: searchTerm || "",
+        sortField: sortModel[0]?.colId || "id",
+        sortOrder: sortModel[0]?.sort || "asc",
+      })
+    );
+  }, [dispatch, page, filters, searchTerm, sortModel]);
 
   const formik = useFormik({
     initialValues: {
@@ -79,7 +93,17 @@ const UsersPage = () => {
           setNotificationMessage("User created successfully!");
         }
 
-        await dispatch(fetchUsers({ page }));
+        // reload with current filters/sort/search/page
+        await dispatch(
+          fetchUsers({
+            page,
+            limit: 20,
+            filters,
+            q: searchTerm || "",
+            sortField: sortModel[0]?.colId || "id",
+            sortOrder: sortModel[0]?.sort || "asc",
+          })
+        );
         setNotificationOpen(true);
         formik.resetForm();
         handleCloseDialog();
@@ -93,8 +117,8 @@ const UsersPage = () => {
   const handleOpenDialog = (user = null) => {
     if (user) {
       formik.setValues({
-        name: user.name,
-        email: user.email,
+        name: user.name || "",
+        email: user.email || "",
         phone: user.setting?.phone || "",
         city: user.setting?.city || "",
       });
@@ -116,7 +140,17 @@ const UsersPage = () => {
   const handleConfirmDelete = async () => {
     try {
       await dispatch(deleteUser(deleteId)).unwrap();
-      await dispatch(fetchUsers({ page }));
+      // reload
+      await dispatch(
+        fetchUsers({
+          page,
+          limit: 20,
+          filters,
+          q: searchTerm || "",
+          sortField: sortModel[0]?.colId || "id",
+          sortOrder: sortModel[0]?.sort || "asc",
+        })
+      );
       setNotificationMessage("User deleted successfully!");
       setNotificationOpen(true);
     } catch (err) {
@@ -134,49 +168,102 @@ const UsersPage = () => {
   const handleSortChanged = useCallback((params) => {
     const sort = params.api.getSortModel();
     setSortModel(sort);
+    setPage(1);
+  }, []);
+
+  // Build filters object from AG Grid filter model.
+  // Column field ids look like: "id", "name", "email", "setting.phone", "setting.city"
+  const handleFilterChanged = useCallback((params) => {
+    const filterModel = params.api.getFilterModel() || {};
+    const newFilters = {};
+
+    Object.entries(filterModel).forEach(([colId, model]) => {
+      if (!model) return;
+      // For agTextColumnFilter the typed value is `model.filter`
+      const value = model.filter;
+      if (!value) return;
+      // Map 'setting.phone' => 'phone'
+      const key = colId.includes(".") ? colId.split(".").pop() : colId;
+      newFilters[key] = value;
+    });
+
+    setFilters(newFilters);
+    setSearchTerm(""); // clear global q when using column filters
+    setPage(1);
   }, []);
 
   const columns = [
-    { headerName: "ID", field: "id", width: 70, sortable: true },
-    { headerName: "Name", field: "name", flex: 1, sortable: true },
-    { headerName: "Email", field: "email", flex: 1, sortable: true },
+    { headerName: "ID", field: "id", width: 90, sortable: true, filter: "agTextColumnFilter" },
+    { headerName: "Name", field: "name", flex: 1, sortable: true, filter: "agTextColumnFilter" },
+    { headerName: "Email", field: "email", flex: 1, sortable: true, filter: "agTextColumnFilter" },
     {
       headerName: "Phone",
-      field: "setting.phone",
+      field: "setting.phone", // nested field — AG Grid supports dot notation
       flex: 1,
-      valueGetter: (params) => params.data.setting?.phone || "-",
+      sortable: true,
+      filter: "agTextColumnFilter",
+      valueGetter: (params) => params.data?.setting?.phone || "-",
     },
     {
       headerName: "City",
       field: "setting.city",
       flex: 1,
-      valueGetter: (params) => params.data.setting?.city || "-",
+      sortable: true,
+      filter: "agTextColumnFilter",
+      valueGetter: (params) => params.data?.setting?.city || "-",
     },
     {
       headerName: "Actions",
-      width: 240,
+      width: 260,
+      cellStyle: { display: "flex", alignItems: "center", padding: "0 8px" },
       cellRenderer: (params) => (
-        <div style={{ display: "flex", gap: "8px" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: "8px",
+            width: "100%",
+            height: "100%",
+          }}
+        >
           <Button
             size="small"
             variant="outlined"
             color="info"
+            sx={{
+              minWidth: 64,
+              height: 32,
+              textTransform: "none",
+            }}
             onClick={() => handleViewClick(params.data)}
           >
             View
           </Button>
+
           <Button
             size="small"
             variant="outlined"
             color="secondary"
+            sx={{
+              minWidth: 64,
+              height: 32,
+              textTransform: "none",
+            }}
             onClick={() => handleOpenDialog(params.data)}
           >
             Edit
           </Button>
+
           <Button
             size="small"
             variant="outlined"
             color="error"
+            sx={{
+              minWidth: 64,
+              height: 32,
+              textTransform: "none",
+            }}
             onClick={() => handleDeleteClick(params.data.id)}
           >
             Delete
@@ -186,11 +273,6 @@ const UsersPage = () => {
     },
   ];
 
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
-    setPage(1); // reset to page 1 on new search
-  };
-
   return (
     <div>
       <Typography variant="h4" gutterBottom>
@@ -198,10 +280,15 @@ const UsersPage = () => {
       </Typography>
 
       <Box display="flex" justifyContent="space-between" mb={2}>
+        {/* Optional global search */}
         <TextField
           placeholder="Search users..."
           value={searchTerm}
-          onChange={handleSearchChange}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setFilters({}); 
+            setPage(1);
+          }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -227,11 +314,14 @@ const UsersPage = () => {
               columnDefs={columns}
               pagination={false}
               onSortChanged={handleSortChanged}
+              onFilterChanged={handleFilterChanged}
               domLayout="autoHeight"
+              rowHeight={40}
               defaultColDef={{
                 sortable: true,
                 filter: true,
                 floatingFilter: true,
+                minWidth: 100,
               }}
             />
           </div>
@@ -239,20 +329,20 @@ const UsersPage = () => {
           {/* Pagination Controls */}
           <Box display="flex" justifyContent="space-between" mt={2}>
             <Typography>
-              Page {meta?.currentPage} of {meta?.lastPage} | Total:{" "}
-              {meta?.total}
+              Page {meta?.currentPage || page} of {meta?.lastPage || 1} | Total:{" "}
+              {meta?.total ?? 0}
             </Typography>
             <Box display="flex" gap={1}>
               <Button
                 variant="outlined"
-                disabled={meta?.currentPage === 1}
-                onClick={() => setPage((prev) => prev - 1)}
+                disabled={(meta?.currentPage || page) === 1}
+                onClick={() => setPage((prev) => Math.max(1, prev - 1))}
               >
                 Previous
               </Button>
               <Button
                 variant="outlined"
-                disabled={meta?.currentPage === meta?.lastPage}
+                disabled={(meta?.currentPage || page) === (meta?.lastPage || 1)}
                 onClick={() => setPage((prev) => prev + 1)}
               >
                 Next
