@@ -1,89 +1,102 @@
 import React, { useState } from "react";
-import { Box, Button, TextField, Typography, Paper } from "@mui/material";
+import {
+  Box,
+  Button,
+  Container,
+  TextField,
+  Typography,
+  Paper,
+} from "@mui/material";
+import { useDispatch, useSelector } from "react-redux";
+import { registerUser } from "../store/authSlice"; // using Redux
+import { useNavigate } from "react-router-dom";
 
 const RegisterPage = () => {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  const { loading, error } = useSelector((state) => state.auth);
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
-    confirmPassword: "",
   });
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Register data:", formData); // Replace with API integration
+    const result = await dispatch(registerUser(formData));
+
+    if (result.meta.requestStatus === "fulfilled") {
+      navigate("/login"); // Redirect to login after successful registration
+    }
   };
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "100vh",
-        backgroundColor: "#f5f5f5",
-      }}
-    >
-      <Paper sx={{ p: 4, width: 350 }}>
-        <Typography variant="h5" textAlign="center" mb={2}>
-          Register
+    <Container maxWidth="sm">
+      <Paper elevation={3} sx={{ padding: 4, marginTop: 8 }}>
+        <Typography variant="h5" gutterBottom>
+          Create an Account
         </Typography>
-        <form onSubmit={handleSubmit}>
+
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+          sx={{ display: "flex", flexDirection: "column", gap: 2 }}
+        >
           <TextField
             label="Name"
             name="name"
             value={formData.name}
             onChange={handleChange}
-            fullWidth
-            margin="normal"
             required
+            fullWidth
           />
+
           <TextField
             label="Email"
             name="email"
             type="email"
             value={formData.email}
             onChange={handleChange}
-            fullWidth
-            margin="normal"
             required
+            fullWidth
           />
+
           <TextField
             label="Password"
             name="password"
             type="password"
             value={formData.password}
             onChange={handleChange}
-            fullWidth
-            margin="normal"
             required
-          />
-          <TextField
-            label="Confirm Password"
-            name="confirmPassword"
-            type="password"
-            value={formData.confirmPassword}
-            onChange={handleChange}
             fullWidth
-            margin="normal"
-            required
           />
+
+          {error && (
+            <Typography color="error" variant="body2">
+              {error}
+            </Typography>
+          )}
+
           <Button
             type="submit"
             variant="contained"
             color="primary"
-            fullWidth
-            sx={{ mt: 2 }}
+            disabled={loading}
           >
-            Register
+            {loading ? "Registering..." : "Register"}
           </Button>
-        </form>
+        </Box>
       </Paper>
-    </Box>
+    </Container>
   );
 };
 

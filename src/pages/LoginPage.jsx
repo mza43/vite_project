@@ -1,65 +1,91 @@
 import React, { useState } from "react";
-import { Box, Button, TextField, Typography, Paper } from "@mui/material";
+import {
+  Box,
+  Button,
+  Container,
+  TextField,
+  Typography,
+  Paper,
+} from "@mui/material";
+import { useDispatch, useSelector } from "react-redux";
+import { loginUser } from "../store/authSlice";
+import { useNavigate } from "react-router-dom";
 
 const LoginPage = () => {
-  const [formData, setFormData] = useState({ email: "", password: "" });
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  const { loading, error } = useSelector((state) => state.auth);
+
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Login data:", formData); // Replace with API integration
+    const result = await dispatch(loginUser(formData));
+    if (result.meta.requestStatus === "fulfilled") {
+      navigate("/"); // redirect after login
+    }
   };
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "100vh",
-        backgroundColor: "#f5f5f5",
-      }}
-    >
-      <Paper sx={{ p: 4, width: 350 }}>
-        <Typography variant="h5" textAlign="center" mb={2}>
+    <Container maxWidth="sm">
+      <Paper elevation={3} sx={{ padding: 4, marginTop: 8 }}>
+        <Typography variant="h5" gutterBottom>
           Login
         </Typography>
-        <form onSubmit={handleSubmit}>
+
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+          sx={{ display: "flex", flexDirection: "column", gap: 2 }}
+        >
           <TextField
             label="Email"
             name="email"
             type="email"
             value={formData.email}
             onChange={handleChange}
-            fullWidth
-            margin="normal"
             required
+            fullWidth
           />
+
           <TextField
             label="Password"
             name="password"
             type="password"
             value={formData.password}
             onChange={handleChange}
-            fullWidth
-            margin="normal"
             required
+            fullWidth
           />
+
+          {error && (
+            <Typography color="error" variant="body2">
+              {error}
+            </Typography>
+          )}
+
           <Button
             type="submit"
             variant="contained"
             color="primary"
-            fullWidth
-            sx={{ mt: 2 }}
+            disabled={loading}
           >
-            Login
+            {loading ? "Logging in..." : "Login"}
           </Button>
-        </form>
+        </Box>
       </Paper>
-    </Box>
+    </Container>
   );
 };
 

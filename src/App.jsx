@@ -1,5 +1,8 @@
 import React from "react";
 import { Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchCurrentUser } from "./store/authSlice";
 
 // Layout
 import MainLayout from "./components/layout/MainLayout";
@@ -11,12 +14,18 @@ import CategoriesPage from "./pages/CategoriesPage";
 import PostsPage from "./pages/PostsPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
-// 
+//
 import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
 ModuleRegistry.registerModules([AllCommunityModule]);
 
+const App = () => {
+  const dispatch = useDispatch();
+  const { token, user } = useSelector((s) => s.auth);
 
-const App = () => {   
+  useEffect(() => {
+    if (token && !user) dispatch(fetchCurrentUser());
+  }, [token, user, dispatch]);
+
   console.log("Current path:", window.location.pathname);
 
   return (

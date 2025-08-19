@@ -1,3 +1,4 @@
+// src/pages/CategoriesPage.jsx
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -6,32 +7,23 @@ import {
   updateCategory,
   deleteCategory,
 } from "../store/categoriesSlice";
-import { AgGridReact } from "ag-grid-react";
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  TextField,
-  Typography,
-  CircularProgress,
-  Box,
-} from "@mui/material";
+import { Button, Typography, CircularProgress, Box } from "@mui/material";
 import { useFormik } from "formik";
 import * as Yup from "yup";
+
 import ConfirmDialog from "../components/common/ConfirmDialog";
 import NotificationDialog from "../components/common/NotificationDialog";
 
-// Register AG Grid modules
-import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
-ModuleRegistry.registerModules([AllCommunityModule]);
+import CategoriesTable from "../components/category/CategoriesTable";
+import CategoryFormDialog from "../components/category/CategoryFormDialog";
+import CategoryViewDialog from "../components/category/CategoryViewDialog";
+import categoryColumns from "../components/category/categoryColumns";
 
 const CategoriesPage = () => {
   const dispatch = useDispatch();
   const { list: categories, loading } = useSelector((state) => state.categories);
 
-  // Dialogs
+  // Dialogs & state
   const [openDialog, setOpenDialog] = useState(false);
   const [openView, setOpenView] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -47,7 +39,7 @@ const CategoriesPage = () => {
     dispatch(fetchCategories());
   }, [dispatch]);
 
-  // Formik setup
+  // Formik
   const formik = useFormik({
     initialValues: { title: "", description: "" },
     validationSchema: Yup.object({
@@ -57,7 +49,9 @@ const CategoriesPage = () => {
     onSubmit: async (values) => {
       try {
         if (editId) {
-          await dispatch(updateCategory({ id: editId, category: values })).unwrap();
+          await dispatch(
+            updateCategory({ id: editId, category: values })
+          ).unwrap();
           setNotificationMessage("Category updated successfully!");
         } else {
           await dispatch(createCategory(values)).unwrap();
@@ -66,7 +60,7 @@ const CategoriesPage = () => {
         await dispatch(fetchCategories());
         setNotificationOpen(true);
         formik.resetForm();
-        handleCloseDialog();
+        setOpenDialog(false);
       } catch (err) {
         setNotificationMessage(err?.message || "Something went wrong!");
         setNotificationOpen(true);
@@ -74,6 +68,7 @@ const CategoriesPage = () => {
     },
   });
 
+  // Handlers
   const handleOpenDialog = (category = null) => {
     if (category) {
       formik.setValues({
@@ -87,8 +82,6 @@ const CategoriesPage = () => {
     }
     setOpenDialog(true);
   };
-
-  const handleCloseDialog = () => setOpenDialog(false);
 
   const handleDeleteClick = (id) => {
     setDeleteId(id);
@@ -113,44 +106,12 @@ const CategoriesPage = () => {
     setOpenView(true);
   };
 
-  // AG Grid columns
-  const columns = [
-    { headerName: "ID", field: "id", width: 70 },
-    { headerName: "Title", field: "title", flex: 1 },
-    { headerName: "Description", field: "description", flex: 2 },
-    {
-      headerName: "Actions",
-      width: 240,
-      cellRenderer: (params) => (
-        <div style={{ display: "flex", gap: "8px" }}>
-          <Button
-            size="small"
-            variant="outlined"
-            color="info"
-            onClick={() => handleViewClick(params.data)}
-          >
-            View
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            color="secondary"
-            onClick={() => handleOpenDialog(params.data)}
-          >
-            Edit
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            color="error"
-            onClick={() => handleDeleteClick(params.data.id)}
-          >
-            Delete
-          </Button>
-        </div>
-      ),
-    },
-  ];
+  // Column defs from separate file
+  const columns = categoryColumns({
+    onView: handleViewClick,
+    onEdit: handleOpenDialog,
+    onDelete: handleDeleteClick,
+  });
 
   return (
     <div>
@@ -158,7 +119,6 @@ const CategoriesPage = () => {
         Categories
       </Typography>
 
-      {/* Add Button */}
       <Button
         variant="contained"
         color="primary"
@@ -168,84 +128,27 @@ const CategoriesPage = () => {
         Add Category
       </Button>
 
-      {/* Loader */}
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
           <CircularProgress />
         </Box>
       ) : (
-        <div className="ag-theme-alpine" style={{ width: "100%", borderRadius: "8px" }}>
-          <AgGridReact
-            rowData={categories}
-            columnDefs={columns}
-            pagination={true}
-            paginationPageSize={10}
-            rowHeight={50}
-            headerHeight={45}
-            domLayout="autoHeight"
-            defaultColDef={{
-              sortable: true,
-              filter: true,
-              floatingFilter: true,
-            }}
-          />
-        </div>
+        <CategoriesTable data={categories} columns={columns} loading={loading} />
       )}
 
-      {/* Add/Edit Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} fullWidth>
-        <DialogTitle>{editId ? "Edit Category" : "Add Category"}</DialogTitle>
-        <form onSubmit={formik.handleSubmit}>
-          <DialogContent>
-            <TextField
-              label="Title"
-              name="title"
-              fullWidth
-              margin="dense"
-              value={formik.values.title}
-              onChange={formik.handleChange}
-              error={formik.touched.title && Boolean(formik.errors.title)}
-              helperText={formik.touched.title && formik.errors.title}
-            />
-            <TextField
-              label="Description"
-              name="description"
-              fullWidth
-              margin="dense"
-              value={formik.values.description}
-              onChange={formik.handleChange}
-              error={
-                formik.touched.description && Boolean(formik.errors.description)
-              }
-              helperText={formik.touched.description && formik.errors.description}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>Cancel</Button>
-            <Button variant="contained" color="primary" type="submit">
-              {editId ? "Update" : "Create"}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
+      <CategoryFormDialog
+        open={openDialog}
+        onClose={() => setOpenDialog(false)}
+        formik={formik}
+        editId={editId}
+      />
 
-      {/* View Dialog */}
-      <Dialog open={openView} onClose={() => setOpenView(false)} fullWidth>
-        <DialogTitle>Category Details</DialogTitle>
-        <DialogContent>
-          {selectedCategory && (
-            <>
-              <Typography>Title: {selectedCategory.title}</Typography>
-              <Typography>Description: {selectedCategory.description}</Typography>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenView(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      <CategoryViewDialog
+        open={openView}
+        onClose={() => setOpenView(false)}
+        category={selectedCategory}
+      />
 
-      {/* Confirm Delete */}
       <ConfirmDialog
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
@@ -254,7 +157,6 @@ const CategoriesPage = () => {
         message="Are you sure you want to delete this category?"
       />
 
-      {/* Notification Dialog */}
       <NotificationDialog
         open={notificationOpen}
         onClose={() => setNotificationOpen(false)}
